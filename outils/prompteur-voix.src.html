@@ -1,0 +1,243 @@
+<title>Prompteur voix Moha</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=Inter+Tight:wght@800;900&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Studio sombre, un seul accent lime (charte itsmoha.ia) ; la bande de lecture au tiers haut guide l'œil. */
+:root{
+  --bg:#0B0D12; --panel:#141821; --line:#262B36; --fg:#F2F4F8; --muted:#9AA1B2; --dim:#5C6375;
+  --accent:#D7FF00; --rec:#FF5A4E;
+  --display:"Inter Tight","Inter",system-ui,sans-serif; --body:"Inter",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);display:flex;flex-direction:column;overflow:hidden}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--bg);position:relative;z-index:3}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto;min-width:0}
+.brand b{font-family:var(--display);font-weight:900;font-size:20px;letter-spacing:-.03em}
+.brand span{color:var(--muted);font-size:13px}
+.btn{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--panel);font-weight:600;font-size:15px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:#0B0D12;border-color:var(--accent)}
+.btn.rec{background:var(--rec);color:#fff;border-color:var(--rec)}
+.ctl{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.ctl input[type=range]{accent-color:var(--accent);width:110px}
+.meter{width:120px;height:10px;border-radius:5px;background:var(--panel);border:1px solid var(--line);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .06s linear}
+.clock{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15px;min-width:64px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--dim)}
+.dot.on{background:var(--rec);box-shadow:0 0 0 4px rgba(255,90,78,.25);animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:.35}}
+.stage{position:relative;flex:1;min-height:0;overflow:hidden}
+.scroller{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.scroller::-webkit-scrollbar{display:none}
+.text{max-width:900px;margin:0 auto;padding-top:34vh;padding-bottom:70vh}
+.p{font-family:var(--body);font-weight:600;font-size:var(--fs,44px);line-height:1.38;margin:0 0 1.1em;color:var(--fg);transition:color .2s}
+.p.past{color:var(--dim)}
+.cue{display:inline-block;font-family:var(--mono);font-size:.38em;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(215,255,0,.4);border-radius:6px;padding:.15em .5em;vertical-align:.45em;margin-right:.5em}
+.pause{display:inline-block;width:.55em;height:.55em;border-radius:50%;border:2px solid var(--accent);vertical-align:.1em;margin:0 .25em}
+.band{position:absolute;left:0;right:0;top:30vh;height:calc(var(--fs,44px)*2.9);pointer-events:none;border-top:1px solid rgba(215,255,0,.25);border-bottom:1px solid rgba(215,255,0,.25);background:linear-gradient(rgba(215,255,0,.05),rgba(215,255,0,.02))}
+.fade-top,.fade-bot{position:absolute;left:0;right:0;pointer-events:none}
+.fade-top{top:0;height:22vh;background:linear-gradient(var(--bg),transparent)}
+.fade-bot{bottom:0;height:30vh;background:linear-gradient(transparent,var(--bg))}
+.count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:min(40vw,260px);color:var(--accent);background:rgba(11,13,18,.82);z-index:4}
+.progress{height:3px;background:var(--line)}
+.progress i{display:block;height:100%;width:0;background:var(--accent)}
+.foot{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-top:1px solid var(--line);background:var(--bg)}
+.note{font-size:13px;color:var(--muted);line-height:1.45;max-width:70ch;min-width:0}
+.note b{color:var(--fg)}
+.result{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+audio{height:40px;max-width:100%}
+.mirror .text{transform:scaleX(-1)}
+@media (max-width:640px){.ctl input[type=range]{width:80px}.p{font-size:min(var(--fs,44px),30px)}.brand span{display:none}}
+@media (prefers-reduced-motion:reduce){.dot.on{animation:none}}
+</style>
+
+<header class="bar">
+  <div class="brand"><b>Prompteur</b><span>Clone de voix · De vibecodeur à dev senior IA</span></div>
+  <label class="ctl" for="speed">Vitesse <input id="speed" type="range" min="10" max="120" value="42"></label>
+  <label class="ctl" for="size">Taille <input id="size" type="range" min="26" max="72" value="44"></label>
+  <button class="btn" id="mirrorBtn" type="button" aria-pressed="false">Miroir</button>
+  <button class="btn primary" id="playBtn" type="button">Lancer le défilement</button>
+</header>
+<div class="progress" aria-hidden="true"><i id="prog"></i></div>
+
+<main class="stage">
+  <div class="scroller" id="scroller">
+    <div class="text" id="text"></div>
+  </div>
+  <div class="band" aria-hidden="true"></div>
+  <div class="fade-top" aria-hidden="true"></div>
+  <div class="fade-bot" aria-hidden="true"></div>
+  <div class="count" id="count" hidden></div>
+</main>
+
+<footer class="foot">
+  <div id="recUi" class="result" hidden>
+    <span class="dot" id="dot"></span><span class="clock" id="clock">0:00</span>
+    <span class="meter" title="Niveau du micro"><i id="lvl"></i></span>
+    <label class="ctl" for="mic">Micro <select id="mic" class="btn" style="min-height:36px;padding:0 8px"></select></label>
+    <button class="btn rec" id="recBtn" type="button">Enregistrer</button>
+    <button class="btn" id="stopBtn" type="button" disabled>Arrêter</button>
+    <audio id="player" controls hidden></audio>
+    <button class="btn primary" id="saveBtn" type="button" hidden>Télécharger le WAV</button>
+  </div>
+  <p class="note" id="note"></p>
+</footer>
+
+<script>
+const SCRIPT = [
+  ["souriant", "Salut, moi c'est Moha. Bienvenue dans « De vibecodeur à dev senior IA »."],
+  ["complice", "Si tu es là, c'est que tu as déjà demandé à une IA de te coder une app… et que ça a marché. ‖ Jusqu'au jour où tout a cassé. ‖ Je connais ce moment. Et je vais te montrer comment ne plus jamais le revivre."],
+  ["posé", "Dans cette formation, on va construire ensemble une vraie application de réservation : avec des comptes utilisateurs, une base de données, un paiement en ligne, et des emails de rappel. Pas une démo. Une vraie app, en ligne, que tu pourras montrer à tes clients."],
+  ["rassurant", "Pour ça, on va utiliser Claude Code, la méthode BMAD, Next.js, Supabase, Vercel et Stripe. Ça fait beaucoup de noms ? ‖ Pas de panique. On va les prendre un par un, tranquillement."],
+  ["léger", "Première étape : ouvrir le terminal. Je sais, l'écran noir fait peur. Mais regarde : on tape une commande, on appuie sur Entrée… ‖ et voilà. Rien n'a explosé."],
+  ["question", "Est-ce que tu as besoin de savoir coder pour suivre ce cours ? ‖ Non. Est-ce que tu vas apprendre à lire du code ? ‖ Oui, et tu vas même y prendre goût."],
+  ["convaincu", "Le secret, ce n'est pas de taper plus vite que l'IA. C'est de lui donner un plan. Un analyste, un chef de produit, un architecte, un développeur, un testeur. Chacun son rôle. C'est exactement ce que fait BMAD."],
+  ["alerte", "Attention, point important : ne mets jamais ta clé secrète dans ton code. ‖ Jamais. On va voir ensemble où la ranger, et pourquoi."],
+  ["suspense", "Et maintenant… le moment que tu attends. On déploie. Trois, ‖ deux, ‖ un… ‖ Ton app est en ligne ! Franchement, prends deux secondes pour savourer."],
+  ["énergique", "À chaque module, tu gagnes des points, tu valides des défis, et à la fin tu obtiens ton certificat. Un, deux, trois, quatre, cinq : cinq étapes, et tu passes de vibecodeur à dev senior IA."],
+  ["final", "Bon. Assez parlé. Ouvre ton ordinateur, installe-toi confortablement, et on y va. On se retrouve dans la première leçon. À tout de suite !"]
+];
+const $ = id => document.getElementById(id);
+const text = $("text"), scroller = $("scroller");
+SCRIPT.forEach(([cue, line]) => {
+  const p = document.createElement("p"); p.className = "p";
+  const c = document.createElement("span"); c.className = "cue"; c.textContent = cue; p.appendChild(c);
+  line.split("‖").forEach((chunk, i) => {
+    if (i) { const s = document.createElement("span"); s.className = "pause"; s.title = "Pause d'une seconde"; p.appendChild(s); }
+    p.appendChild(document.createTextNode(chunk));
+  });
+  text.appendChild(p);
+});
+
+// Réglages mémorisés pour ce navigateur seulement.
+const store = { get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
+const speed = $("speed"), size = $("size");
+speed.value = store.get("pv-speed", speed.value); size.value = store.get("pv-size", size.value);
+const applySize = () => { document.documentElement.style.setProperty("--fs", size.value + "px"); store.set("pv-size", size.value); };
+applySize();
+size.addEventListener("input", applySize);
+speed.addEventListener("input", () => store.set("pv-speed", speed.value));
+$("mirrorBtn").addEventListener("click", e => { const on = document.body.classList.toggle("mirror"); e.currentTarget.setAttribute("aria-pressed", on); });
+
+// Défilement continu, piloté par requestAnimationFrame.
+let running = false, last = 0, acc = 0, wake = null;
+function frame(t){
+  if (!running) return;
+  const dt = last ? (t - last) / 1000 : 0; last = t;
+  acc += dt * Number(speed.value);
+  if (acc >= 1){ const px = Math.floor(acc); scroller.scrollTop += px; acc -= px; }
+  if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2) setRunning(false);
+  requestAnimationFrame(frame);
+}
+function updateReading(){
+  const max = scroller.scrollHeight - scroller.clientHeight;
+  $("prog").style.width = (max > 0 ? scroller.scrollTop / max * 100 : 0) + "%";
+  const bandTop = scroller.getBoundingClientRect().top + window.innerHeight * 0.30 - 4;
+  text.querySelectorAll(".p").forEach(p => p.classList.toggle("past", p.getBoundingClientRect().bottom < bandTop));
+}
+scroller.addEventListener("scroll", updateReading, { passive: true });
+async function setRunning(on){
+  running = on; last = 0;
+  $("playBtn").textContent = on ? "Pause" : (scroller.scrollTop > 0 ? "Reprendre" : "Lancer le défilement");
+  if (on){
+    requestAnimationFrame(frame);
+    try { wake = await navigator.wakeLock?.request("screen"); } catch(e){ wake = null; }
+  } else { try { await wake?.release(); } catch(e){} wake = null; }
+}
+function countdown(){
+  return new Promise(res => {
+    const el = $("count"); let n = 3; el.hidden = false; el.textContent = n;
+    const iv = setInterval(() => { n--; if (n === 0){ clearInterval(iv); el.hidden = true; res(); } else el.textContent = n; }, 800);
+  });
+}
+$("playBtn").addEventListener("click", async () => {
+  if (running) return setRunning(false);
+  if (scroller.scrollTop === 0) await countdown();
+  setRunning(true);
+});
+document.addEventListener("keydown", e => {
+  if (e.target.closest("select,input")) return;
+  if (e.code === "Space"){ e.preventDefault(); $("playBtn").click(); }
+  if (e.code === "ArrowUp"){ scroller.scrollTop -= 80; }
+  if (e.code === "ArrowDown"){ scroller.scrollTop += 80; }
+});
+
+// Enregistrement : seulement si le navigateur donne accès au micro (fichier ouvert en local).
+const note = $("note");
+const canRecord = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+let stream = null, rec = null, chunks = [], t0 = 0, tick = null, analyser = null, actx = null, wavBlob = null;
+function fmt(s){ s = Math.floor(s); return Math.floor(s/60) + ":" + String(s%60).padStart(2, "0"); }
+async function openMic(deviceId){
+  stream?.getTracks().forEach(t => t.stop());
+  stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: deviceId ? { exact: deviceId } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 } });
+  actx = actx || new AudioContext();
+  const src = actx.createMediaStreamSource(stream); analyser = actx.createAnalyser(); analyser.fftSize = 1024; src.connect(analyser);
+  const buf = new Float32Array(analyser.fftSize);
+  (function meter(){ if (!analyser) return; analyser.getFloatTimeDomainData(buf); let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v)); $("lvl").style.width = Math.min(100, peak * 140) + "%"; $("lvl").style.background = peak > 0.95 ? "var(--rec)" : "var(--accent)"; requestAnimationFrame(meter); })();
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "audioinput");
+  const sel = $("mic"); const cur = stream.getAudioTracks()[0].getSettings().deviceId; sel.innerHTML = "";
+  devs.forEach((d, i) => { const o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || ("Micro " + (i + 1)); if (d.deviceId === cur) o.selected = true; sel.appendChild(o); });
+}
+function encodeWav(audioBuffer){
+  const ch = audioBuffer.numberOfChannels, len = audioBuffer.length, rate = audioBuffer.sampleRate;
+  const mono = new Float32Array(len);
+  for (let c = 0; c < ch; c++){ const d = audioBuffer.getChannelData(c); for (let i = 0; i < len; i++) mono[i] += d[i] / ch; }
+  const out = new DataView(new ArrayBuffer(44 + len * 2)); let o = 0;
+  const w = s => { for (const c of s) out.setUint8(o++, c.charCodeAt(0)); };
+  w("RIFF"); out.setUint32(o, 36 + len * 2, true); o += 4; w("WAVEfmt "); out.setUint32(o, 16, true); o += 4;
+  out.setUint16(o, 1, true); o += 2; out.setUint16(o, 1, true); o += 2; out.setUint32(o, rate, true); o += 4;
+  out.setUint32(o, rate * 2, true); o += 4; out.setUint16(o, 2, true); o += 2; out.setUint16(o, 16, true); o += 2;
+  w("data"); out.setUint32(o, len * 2, true); o += 4;
+  for (let i = 0; i < len; i++){ const s = Math.max(-1, Math.min(1, mono[i])); out.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7FFF, true); o += 2; }
+  return new Blob([out], { type: "audio/wav" });
+}
+async function initRecorder(){
+  if (!canRecord){ showReaderOnly(); return; }
+  try { await openMic(); }
+  catch(e){ showReaderOnly(e && e.name === "NotAllowedError" ? "Accès au micro refusé." : ""); return; }
+  $("recUi").hidden = false;
+  note.innerHTML = "<b>Micro prêt.</b> Pièce calme, micro à 15–20 cm, ton naturel. Les étiquettes lime donnent le ton, ne les lis pas ; un rond lime = une seconde de pause. Le niveau doit monter vers les ¾ sans devenir rouge.";
+  $("mic").addEventListener("change", e => openMic(e.target.value).catch(() => {}));
+  $("recBtn").addEventListener("click", async () => {
+    chunks = []; wavBlob = null; $("player").hidden = true; $("saveBtn").hidden = true;
+    rec = new MediaRecorder(stream);
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    rec.onstop = async () => {
+      clearInterval(tick); $("dot").classList.remove("on");
+      const raw = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      try { wavBlob = encodeWav(await actx.decodeAudioData(await raw.arrayBuffer())); }
+      catch(e){ wavBlob = raw; }
+      $("player").src = URL.createObjectURL(wavBlob); $("player").hidden = false;
+      $("saveBtn").hidden = false; $("saveBtn").textContent = wavBlob.type === "audio/wav" ? "Télécharger le WAV" : "Télécharger l'audio";
+      note.innerHTML = "<b>Enregistrement terminé (" + fmt((Date.now() - t0) / 1000) + ").</b> Réécoute un passage, puis télécharge le fichier et envoie-le à Claude dans la conversation. Visé : entre 2 et 3 minutes.";
+    };
+    scroller.scrollTop = 0; updateReading();
+    await countdown();
+    rec.start(1000); t0 = Date.now(); $("dot").classList.add("on");
+    tick = setInterval(() => $("clock").textContent = fmt((Date.now() - t0) / 1000), 250);
+    $("recBtn").disabled = true; $("stopBtn").disabled = false;
+    setRunning(true);
+  });
+  $("stopBtn").addEventListener("click", () => {
+    if (rec && rec.state !== "inactive") rec.stop();
+    setRunning(false); $("recBtn").disabled = false; $("stopBtn").disabled = true; $("recBtn").textContent = "Recommencer";
+  });
+  $("saveBtn").addEventListener("click", () => {
+    if (!wavBlob) return;
+    const a = document.createElement("a"); a.href = URL.createObjectURL(wavBlob);
+    a.download = "moha-voix-clone." + (wavBlob.type === "audio/wav" ? "wav" : "webm"); document.body.appendChild(a); a.click(); a.remove();
+  });
+}
+function showReaderOnly(reason){
+  note.innerHTML = (reason ? "<b>" + reason + "</b> " : "") + "<b>Mode prompteur.</b> Ici, la page ne peut pas utiliser ton micro. Pour enregistrer directement dans la page, télécharge le fichier <b>prompteur-voix.html</b> envoyé par Claude et ouvre-le dans Chrome sur ton ordinateur. Sinon, lance l'app Dictaphone de ton téléphone, puis le défilement ici, et envoie l'audio à Claude.";
+}
+initRecorder();
+updateReading();
+</script>
